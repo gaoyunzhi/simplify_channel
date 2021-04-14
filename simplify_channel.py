@@ -22,17 +22,19 @@ def stripPromotion(text):
             break
     return '\n'.join(lines).strip()
 
-def addSource(text, channel, post_id):
-    return text + '\n\n来源： ' + channel + '/' + str(post_id) 
+def addSource(text, key):
+    return text + '\n\n来源： ' + key
 
 async def simplifyOne(target):
     channel = credential['source_group']
     post = getPost(channel, existing, min_time=1)
+    key = 'https://t.me/' + post.getKey()
+    # existing.update(key)
     img_number = post.getImgNumber()
     text = await genText(channel, post.post_id)
     print(text)
     new_text = stripPromotion(cc.convert(text))
-    new_text = addSource(new_text, channel, post.post_id)
+    new_text = addSource(new_text, key)
     if post.getVideo():
         print('WARNING VIDEO')
         return
@@ -43,10 +45,11 @@ async def simplifyOne(target):
 
 async def simplify():
     client = await getTelethonClient()
-    await client.getDialogs()
+    await client.get_dialogs()
     target = await client.get_entity(credential['target_group'])
-    while True:
-        simplifyOne(target)
+    # while True:
+    #     await simplifyOne(target)
+    await simplifyOne(target)
     await exitTelethon()
     
 if __name__ == "__main__":
