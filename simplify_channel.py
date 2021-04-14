@@ -35,7 +35,7 @@ def stripPromotion(text):
 def addSource(text, key):
     return text + '\n\n来源： ' + key
 
-async def sendSingle(client, channel, target, post, img_number, new_text):
+async def sendSingle(client, source_channel, target, post, img_number, new_text):
     video = post.getVideo()
     if video:
         cached_url.get(video, mode='b', force_cache=True)
@@ -44,33 +44,32 @@ async def sendSingle(client, channel, target, post, img_number, new_text):
     if not img_number:
         await client.send_message(target, new_text)
         return
-    fns = await telepost.getImages(channel, post.post_id, img_number)
+    fns = await telepost.getImages(source_channel, post.post_id, img_number)
     await client.send_message(target, new_text, file = fns)
 
-async def simplifyOne(client, target):
-    channel = credential['source_group']
-    post = telepost.getPost(channel, existing, min_time=1)
+async def simplifyOne(client, source_channel, target_channel):
+    target = await client.get_entity(target_channel)
+    post = telepost.getPost(source_channel, existing, min_time=1)
     key = 'https://t.me/' + post.getKey()
     img_number = post.getImgNumber()
-    text = await telepost.genText(channel, post.post_id)
+    text = await telepost.genText(source_channel, post.post_id)
     mid_text = stripPromotion(cc.convert(text))
     new_text = addSource(mid_text, key)
     try:
-        await sendSingle(client, channel, target, post, img_number, new_text)
+        await sendSingle(client, source_channel, target, post, img_number, new_text)
     except:
-        await sendSingle(client, channel, target, post, img_number, mid_text)
-    # existing.update(key, 1)
+        await sendSingle(client, source_channel, target, post, img_number, mid_text)
+    existing.update(key, 1)
 
 async def simplify():
     client = await telepost.getTelethonClient()
-    # await client.get_dialogs()
-    target = await client.get_entity(credential['target_group'])
-    await simplifyOne(client, target)
-    time.sleep(1)
+    await client.get_dialogs()
+    for source_channel, target_channel in credential['tasks'].items():
+        await simplifyOne(client, source_channel, target_channel)
     await telepost.exitTelethon()
     
 if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    r = loop.run_until_complete(simplify())
+    loop.run_until_complete(simplify())
     loop.close()
