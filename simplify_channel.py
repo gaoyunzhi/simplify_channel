@@ -6,7 +6,7 @@ import yaml
 from telepost import getPost, getImages, exitTelethon, getTelethonClient, genText
 import plain_db
 from opencc import OpenCC
-cc = OpenCC('hk2s')
+cc = OpenCC('tw2sp')
 
 existing = plain_db.load('existing')
 
@@ -25,31 +25,36 @@ def stripPromotion(text):
 def addSource(text, key):
     return text + '\n\n来源： ' + key
 
-async def simplifyOne(target):
-    channel = credential['source_group']
-    post = getPost(channel, existing, min_time=1)
-    key = 'https://t.me/' + post.getKey()
-    # existing.update(key)
-    img_number = post.getImgNumber()
-    text = await genText(channel, post.post_id)
-    print(text)
-    new_text = stripPromotion(cc.convert(text))
-    new_text = addSource(new_text, key)
+async def send(client, channel, target, post, img_number, new_text):
     if post.getVideo():
         print('WARNING VIDEO')
         return
     if not img_number:
-        await client.send_messages(target, new_text)
+        await client.send_message(target, new_text)
     fns = await getImages(channel, post.post_id, img_number)
-    await client.send_messages(target, new_text, file = fns)
+    await client.send_message(target, new_text, file = fns)
+
+async def simplifyOne(client, target):
+    channel = credential['source_group']
+    post = getPost(channel, existing, min_time=1)
+    key = 'https://t.me/' + post.getKey()
+    img_number = post.getImgNumber()
+    text = await genText(channel, post.post_id)
+    mid_text = stripPromotion(cc.convert(text))
+    new_text = addSource(mid_text, key)
+    try:
+        await send(client, channel, target, post, img_number, new_text)
+    except:
+        await send(client, channel, target, post, img_number, mid_text)
+    existing.update(key, 1)
+    
 
 async def simplify():
     client = await getTelethonClient()
     await client.get_dialogs()
     target = await client.get_entity(credential['target_group'])
-    # while True:
-    #     await simplifyOne(target)
-    await simplifyOne(target)
+    for _ in range(3):
+        await simplifyOne(client, target)
     await exitTelethon()
     
 if __name__ == "__main__":
